@@ -16,6 +16,7 @@ public class Json {
 	    + "\"interval\": 5,"
 	    + "\"array\": [ 500 ],"
 	    + "\"long_array\": [ \"asdf\", \"bcdef\" ],"
+	    + "\"nested_array\": [ [ 123, 456 ], [ 789 ] ],"
 	    + "\"message\": \"To sign in, use a web browser to open the page https://www.microsoft.com/link and enter the code AAAAAAAA to authenticate.\""
 	    + "}";
 

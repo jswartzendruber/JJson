@@ -12,6 +12,7 @@ public class JsonParser<T> {
     private String currentKey;
     private String json;
     private int index;
+    private boolean debug = false;
 
     private Object object;
     private Class<T> objectClass;
@@ -20,6 +21,8 @@ public class JsonParser<T> {
     public JsonParser(String json, Class<T> clazz) throws InstantiationException, IllegalAccessException, InvocationTargetException {
 	this.json = json;
 	this.index = 0;
+
+	if (debug) System.out.println(json);
 
 	Constructor[] ctors = clazz.getDeclaredConstructors();
 	Constructor defCtor = null;
@@ -79,6 +82,7 @@ public class JsonParser<T> {
     }
 
     private void expect(String s) throws JsonException {
+	if (debug) System.out.println("\t" + this.tokens.get(this.index).data);
 	if (!this.tokens.get(this.index++).data.equals(s)) {
 	    throw new JsonException("Expected '" + s + "', got '" + this.tokens.get(this.index - 1).data + "'");
 	}
@@ -89,21 +93,60 @@ public class JsonParser<T> {
     }
 
     private Token next() {
+	if (debug) System.out.println("\t" + this.tokens.get(this.index).data);
 	return this.tokens.get(this.index++);
     }
 
-    private void parseKey() throws JsonException {
-	Token key = next();
-	this.currentKey = key.data;
-	if (key.type != TokenKind.String) {
-	    throw new JsonException("Expected json key, got '" + this.tokens.get(this.index - 1).data + "'");
+    private String eatString() throws JsonException, IllegalAccessException {
+	if (debug) System.out.println("startEatString");
+	Token curr = next();
+	if (curr.type != TokenKind.String) throw new JsonException("Expected string, got " + curr.data);
+	if (debug) System.out.println("endEatString");
+	return curr.data;
+    }
+
+    private int eatInt() throws JsonException, IllegalAccessException {
+	if (debug) System.out.println("startEatInt");
+	Token curr = next();
+	if (curr.type != TokenKind.Integer) throw new JsonException("Expected int, got " + curr.data);
+	if (debug) System.out.println("endEatInt");
+	return Integer.parseInt(curr.data, 10);
+    }
+
+    private List eatArray() throws JsonException, IllegalAccessException {
+	if (debug) System.out.println("startEatArray");
+	Token curr = peek();
+	if (curr.type != TokenKind.Char && !curr.data.equals("[")) {
+	    throw new JsonException("Expected array, got " + curr.data);
 	}
+
+	expect("[");
+	ArrayList array = new ArrayList();
+	
+	while (!peek().data.equals("]")) {
+	    curr = peek();
+	    if (curr.type == TokenKind.Integer) {
+		array.add(eatInt());
+	    } else if (curr.type == TokenKind.String) {
+		array.add(eatString());
+	    } else if (curr.type == TokenKind.Char && curr.data.equals("[")) {
+		System.out.println("nested eat");
+		array.add(eatArray());
+	    }
+		
+	    if (peek().data.equals("]")) break;
+	    else expect(",");
+	}
+	expect("]");
+
+	if (debug) System.out.println("endEatArray");
+	return array;
     }
 
     private void parseJsonObject() throws JsonException, IllegalAccessException {
 	expect("{");
 	while (!peek().data.equals("}")) {
-	    parseKey();
+	    this.currentKey = eatString();
 	    expect(":");
 	    parseIntIfExists();
 	    parseStringIfExists();
@@ -115,54 +158,43 @@ public class JsonParser<T> {
 	expect("}");
     }
 
+    private void getAndSetIntField(String key, int value) throws JsonException, IllegalAccessException {
+	Field f = this.objectFields.get(key);
+	if (f != null) {
+	    f.setInt(this.object, value);
+	} else {
+	    throw new JsonException("Error: Key '" + key + "' does not exist.");
+	}
+    }
+
+    private void getAndSetObjectField(String key, Object value) throws JsonException, IllegalAccessException {
+	Field f = this.objectFields.get(key);
+	if (f != null) {
+	    f.set(this.object, value);
+	} else {
+	    throw new JsonException("Error: Key '" + key + "' does not exist.");
+	}
+    }
+
     private void parseIntIfExists() throws JsonException, IllegalAccessException {
 	Token curr = peek();
 	if (curr.type == TokenKind.Integer) {
-	    int i = Integer.parseInt(curr.data, 10);
-	    Field f = objectFields.get(this.currentKey);
-	    if (f != null) {
-		f.setInt(this.object, i);
-	    } else {
-		throw new JsonException("Error: Key '" + this.currentKey + "' does not exist.");
-	    }
-	    next();
+	    getAndSetIntField(this.currentKey, eatInt());
 	}
     }
 
     private void parseStringIfExists() throws JsonException, IllegalAccessException {
 	Token curr = peek();
 	if (curr.type == TokenKind.String) {
-	    Field f = objectFields.get(this.currentKey);
-	    if (f != null) {
-		f.set(this.object, curr.data);
-	    } else {
-		throw new JsonException("Error: Key '" + this.currentKey + "' does not exist.");
-	    }
-	    next();
+	    getAndSetObjectField(this.currentKey, eatString());
 	}
     }
 
-    @SuppressWarnings("unchecked")
+    // @SuppressWarnings("unchecked")
     private void parseArrayIfExists() throws JsonException, IllegalAccessException {
 	Token curr = peek();
 	if (curr.type == TokenKind.Char && curr.data.equals("[")) {
-	    expect("[");
-	    Field f = objectFields.get(this.currentKey);
-	    f.set(this.object, new ArrayList<>());
-	    ArrayList array = (ArrayList) f.get(this.object);
-	
-	    while (!peek().data.equals("]")) {
-		curr = next();
-		if (curr.type == TokenKind.Integer) {
-		    array.add(Integer.parseInt(curr.data, 10));
-		} else if (curr.type == TokenKind.String) {
-		    array.add(curr.data);
-		}
-		
-		if (peek().data.equals("]")) break;
-		else expect(",");
-	    }
-	    expect("]");
+	    getAndSetObjectField(this.currentKey, eatArray());
 	}
     }
 }

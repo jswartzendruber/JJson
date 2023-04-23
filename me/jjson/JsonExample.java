@@ -11,6 +11,7 @@ public class JsonExample {
     public int interval;
     public List<Integer> array;
     public List<String> long_array;
+    public List<List<Integer>> nested_array;
     public String message;
 
     public JsonExample() {}
@@ -24,6 +25,7 @@ public class JsonExample {
 	    + "interval=" + interval + "\n"
 	    + "array=" + stringify(array) + "\n"
 	    + "long_array=" + stringify(long_array) + "\n"
+	    + "nested_array=" + stringify(nested_array) + "\n"
 	    + "message=" + message + "\n";
     }
 
