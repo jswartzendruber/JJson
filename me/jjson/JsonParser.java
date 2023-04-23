@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 public class JsonParser<T> {
-    private boolean debug = true;
+    private boolean debug = false;
     private List<Token> tokens;
     private String currentKey;
     private String json;
@@ -116,7 +116,8 @@ public class JsonParser<T> {
 	return Integer.parseInt(curr.data, 10);
     }
 
-    private List eatArray() throws JsonException, IllegalAccessException {
+    @SuppressWarnings("unchecked")
+    private List eatArray(HashMap<String, Field> parentObjectFields, T parentObject) throws JsonException, IllegalAccessException, InstantiationException, InvocationTargetException {
 	if (debug) System.out.println("startEatArray");
 	Token curr = peek();
 	if (curr.type != TokenKind.Char && !curr.data.equals("[")) {
@@ -124,6 +125,7 @@ public class JsonParser<T> {
 	}
 
 	ArrayList array = new ArrayList();
+	String objectKey = this.currentKey;
 
 	expect("[");
 	while (!peek().data.equals("]")) {
@@ -133,9 +135,17 @@ public class JsonParser<T> {
 	    } else if (curr.type == TokenKind.String) {
 		array.add(eatString());
 	    } else if (curr.type == TokenKind.Char && curr.data.equals("[")) {
-		array.add(eatArray());
+		array.add(eatArray(parentObjectFields, parentObject));
 	    } else if (curr.type == TokenKind.Char && curr.data.equals("{")) {
-		array.add(eatObject());
+		Field f = parentObjectFields.get(objectKey);
+		if (f != null) {
+		    ParameterizedType type = (ParameterizedType) f.getGenericType();
+		    T innerObjectType = (T) type.getActualTypeArguments()[0];
+		    Class cls = (Class) innerObjectType;
+		    array.add(eatObject(cls));
+		} else {
+		    throw new JsonException("Error: Key '" + objectKey + "' does not exist.");
+		}
 	    }
 		
 	    if (peek().data.equals("]")) break;
@@ -147,6 +157,7 @@ public class JsonParser<T> {
 	return array;
     }
 
+    @SuppressWarnings("unchecked")
     private T eatObject(Class<T> clazz) throws JsonException, IllegalAccessException, InstantiationException, InvocationTargetException {
 	if (debug) System.out.println("startEatObject for " + clazz.toString());
 	Token curr = peek();
@@ -207,14 +218,14 @@ public class JsonParser<T> {
 	}
     }
 
-    // @SuppressWarnings("unchecked")
-    private void parseArrayIfExists(HashMap<String, Field> objectFields, T object) throws JsonException, IllegalAccessException {
+    private void parseArrayIfExists(HashMap<String, Field> objectFields, T object) throws JsonException, IllegalAccessException, InstantiationException, InvocationTargetException {
 	Token curr = peek();
 	if (curr.type == TokenKind.Char && curr.data.equals("[")) {
-	    getAndSetObjectField(objectFields, object, this.currentKey, eatArray());
+	    getAndSetObjectField(objectFields, object, this.currentKey, eatArray(objectFields, object));
 	}
     }
 
+    @SuppressWarnings("unchecked")
     private void parseObjectIfExists(HashMap<String, Field> parentObjectFields, T parentObject) throws JsonException, IllegalAccessException, InstantiationException, InvocationTargetException {
 	Token curr = peek();
 	if (curr.type == TokenKind.Char && curr.data.equals("{")) {
