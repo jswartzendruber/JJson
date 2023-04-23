@@ -37,7 +37,7 @@ public class JsonParser<T> {
 	return defaultConstructor;
     }
 
-    private static HashMap<String, Field> getFields(Class<?> clazz) {
+    protected static HashMap<String, Field> getFields(Class<?> clazz) {
 	HashMap<String, Field> fields = new HashMap<>();
 	for (Field f : clazz.getDeclaredFields()) {
 	    f.setAccessible(true);

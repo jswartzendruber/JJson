@@ -1,6 +1,7 @@
 import me.jjson.JsonException;
 import me.jjson.JsonExample;
 import me.jjson.JsonParser;
+import me.jjson.JsonUtils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
@@ -27,6 +28,8 @@ public class Json {
 	    if (obj == null) return;
 
 	    System.out.println(obj);
+	    System.out.println("-----------");
+	    System.out.println(JsonUtils.toJsonString(obj));
 	} catch (InstantiationException | IllegalAccessException | InvocationTargetException | JsonException e) {
 	    e.printStackTrace();
 	}
