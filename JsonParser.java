@@ -1,3 +1,5 @@
+package me.jjson;
+
 import java.lang.reflect.*;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,27 +17,32 @@ public class JsonParser<T> {
     private Class<T> objectClass;
     private Map<String, Field> objectFields;
 
-    public JsonParser(String json, Class<T> clazz) throws InstantiationException {
+    public JsonParser(String json, Class<T> clazz) throws InstantiationException, IllegalAccessException, InvocationTargetException {
 	this.json = json;
 	this.index = 0;
 
-	try { 
-	    this.objectClass = clazz;
-	    this.object = clazz.newInstance();
-	    this.objectFields = new HashMap<>();
-	    for (Field f : this.objectClass.getDeclaredFields()) {
-		objectFields.put(f.getName(), f);
-	    }
-	} catch (IllegalAccessException e) {
-	    e.printStackTrace();
+	Constructor[] ctors = clazz.getDeclaredConstructors();
+	Constructor defCtor = null;
+	for (int i = 0; i < ctors.length; i++) {
+	    defCtor = ctors[i];
+	    if (defCtor.getGenericParameterTypes().length == 0) break;
+	}
+
+	defCtor.setAccessible(true);
+	this.objectClass = clazz;
+	this.object = (T) defCtor.newInstance();
+	this.objectFields = new HashMap<>();
+	for (Field f : this.objectClass.getDeclaredFields()) {
+	    f.setAccessible(true);
+	    objectFields.put(f.getName(), f);
 	}
     }
 
-    public T parse() {
+    public T parse() throws IllegalAccessException {
 	try {
 	    tokenize();
 	    parseJsonObject();
-	} catch (JsonException | IllegalAccessException e) {
+	} catch (JsonException e) {
 	    System.out.println(e);
 	}
 	
