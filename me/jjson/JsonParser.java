@@ -13,7 +13,7 @@ public class JsonParser<T> {
     private String json;
     private int index;
 
-    private T object;
+    private Object object;
     private Class<T> objectClass;
     private Map<String, Field> objectFields;
 
@@ -30,7 +30,7 @@ public class JsonParser<T> {
 
 	defCtor.setAccessible(true);
 	this.objectClass = clazz;
-	this.object = (T) defCtor.newInstance();
+	this.object = defCtor.newInstance();
 	this.objectFields = new HashMap<>();
 	for (Field f : this.objectClass.getDeclaredFields()) {
 	    f.setAccessible(true);
@@ -38,13 +38,9 @@ public class JsonParser<T> {
 	}
     }
 
-    public T parse() throws IllegalAccessException {
-	try {
-	    tokenize();
-	    parseJsonObject();
-	} catch (JsonException e) {
-	    System.out.println(e);
-	}
+    public Object parse() throws IllegalAccessException, JsonException {
+	tokenize();
+	parseJsonObject();
 	
 	return object;
     }
@@ -72,7 +68,7 @@ public class JsonParser<T> {
 		    sb.append(this.json.charAt(idx++));
 		}
 		this.tokens.add(new Token(sb.toString(), TokenKind.Integer));
-	    } else if (c == '{' || c == '}' || c == ',' || c == ':') {
+	    } else if (c == '{' || c == '}' || c == ',' || c == ':' || c == '[' || c == ']') {
 		this.tokens.add(new Token("" + c, TokenKind.Char));
 	    } else if (c == '\n' || c == '\t' || c == '\r' || c == ' ') {
 		// Ignored
@@ -111,6 +107,7 @@ public class JsonParser<T> {
 	    expect(":");
 	    parseIntIfExists();
 	    parseStringIfExists();
+	    parseArrayIfExists();
 
 	    if (peek().data.equals("}")) break;
 	    else expect(",");
@@ -142,6 +139,30 @@ public class JsonParser<T> {
 		throw new JsonException("Error: Key '" + this.currentKey + "' does not exist.");
 	    }
 	    next();
+	}
+    }
+
+    @SuppressWarnings("unchecked")
+    private void parseArrayIfExists() throws JsonException, IllegalAccessException {
+	Token curr = peek();
+	if (curr.type == TokenKind.Char && curr.data.equals("[")) {
+	    expect("[");
+	    Field f = objectFields.get(this.currentKey);
+	    f.set(this.object, new ArrayList<>());
+	    ArrayList array = (ArrayList) f.get(this.object);
+	
+	    while (!peek().data.equals("]")) {
+		curr = next();
+		if (curr.type == TokenKind.Integer) {
+		    array.add(Integer.parseInt(curr.data, 10));
+		} else if (curr.type == TokenKind.String) {
+		    array.add(curr.data);
+		}
+		
+		if (peek().data.equals("]")) break;
+		else expect(",");
+	    }
+	    expect("]");
 	}
     }
 }
