@@ -12,6 +12,8 @@ public class JsonExample {
     public List<Integer> array;
     public List<String> long_array;
     public List<List<Integer>> nested_array;
+    public InnerObject obj;
+    public List<InnerObject> objs;
     public String message;
 
     public JsonExample() {}
@@ -26,6 +28,8 @@ public class JsonExample {
 	    + "array=" + stringify(array) + "\n"
 	    + "long_array=" + stringify(long_array) + "\n"
 	    + "nested_array=" + stringify(nested_array) + "\n"
+	    + "obj=" + obj.toString() + "\n"
+	    + "objs=" + stringify(objs) + "\n"
 	    + "message=" + message + "\n";
     }
 
@@ -33,5 +37,17 @@ public class JsonExample {
 	return items.stream()
 	    .map(e -> e.toString())
 	    .collect(Collectors.joining(", ", "[", "]"));
+    }
+}
+
+class InnerObject {
+    public String name;
+    public int age;
+
+    public InnerObject() {}
+
+    @Override
+    public String toString() {
+	return "{ name=" + name + " age=" + age +" }";
     }
 }

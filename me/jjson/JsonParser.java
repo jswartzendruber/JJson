@@ -8,44 +8,47 @@ import java.util.List;
 import java.util.Map;
 
 public class JsonParser<T> {
+    private boolean debug = true;
     private List<Token> tokens;
     private String currentKey;
     private String json;
     private int index;
-    private boolean debug = false;
 
-    private Object object;
-    private Class<T> objectClass;
-    private Map<String, Field> objectFields;
+    private Class<T> topLevelObjectClass;
 
     public JsonParser(String json, Class<T> clazz) throws InstantiationException, IllegalAccessException, InvocationTargetException {
+	this.topLevelObjectClass = clazz;
 	this.json = json;
 	this.index = 0;
 
 	if (debug) System.out.println(json);
-
-	Constructor[] ctors = clazz.getDeclaredConstructors();
-	Constructor defCtor = null;
-	for (int i = 0; i < ctors.length; i++) {
-	    defCtor = ctors[i];
-	    if (defCtor.getGenericParameterTypes().length == 0) break;
-	}
-
-	defCtor.setAccessible(true);
-	this.objectClass = clazz;
-	this.object = defCtor.newInstance();
-	this.objectFields = new HashMap<>();
-	for (Field f : this.objectClass.getDeclaredFields()) {
-	    f.setAccessible(true);
-	    objectFields.put(f.getName(), f);
-	}
     }
 
-    public Object parse() throws IllegalAccessException, JsonException {
+    private static Constructor getDefaultConstructor(Class<?> clazz) {
+	Constructor[] constructors = clazz.getDeclaredConstructors();
+	Constructor defaultConstructor = null;
+
+	for (int i = 0; i < constructors.length; i++) {
+	    defaultConstructor = constructors[i];
+	    if (defaultConstructor.getGenericParameterTypes().length == 0) break;
+	}
+
+	defaultConstructor.setAccessible(true);
+	return defaultConstructor;
+    }
+
+    private static HashMap<String, Field> getFields(Class<?> clazz) {
+	HashMap<String, Field> fields = new HashMap<>();
+	for (Field f : clazz.getDeclaredFields()) {
+	    f.setAccessible(true);
+	    fields.put(f.getName(), f);
+	}
+	return fields;
+    }
+
+    public T parse() throws IllegalAccessException, JsonException, InstantiationException, InvocationTargetException {
 	tokenize();
-	parseJsonObject();
-	
-	return object;
+	return eatObject(this.topLevelObjectClass);
     }
 
     private void tokenize() {
@@ -120,9 +123,9 @@ public class JsonParser<T> {
 	    throw new JsonException("Expected array, got " + curr.data);
 	}
 
-	expect("[");
 	ArrayList array = new ArrayList();
-	
+
+	expect("[");
 	while (!peek().data.equals("]")) {
 	    curr = peek();
 	    if (curr.type == TokenKind.Integer) {
@@ -130,8 +133,9 @@ public class JsonParser<T> {
 	    } else if (curr.type == TokenKind.String) {
 		array.add(eatString());
 	    } else if (curr.type == TokenKind.Char && curr.data.equals("[")) {
-		System.out.println("nested eat");
 		array.add(eatArray());
+	    } else if (curr.type == TokenKind.Char && curr.data.equals("{")) {
+		array.add(eatObject());
 	    }
 		
 	    if (peek().data.equals("]")) break;
@@ -143,58 +147,86 @@ public class JsonParser<T> {
 	return array;
     }
 
-    private void parseJsonObject() throws JsonException, IllegalAccessException {
+    private T eatObject(Class<T> clazz) throws JsonException, IllegalAccessException, InstantiationException, InvocationTargetException {
+	if (debug) System.out.println("startEatObject for " + clazz.toString());
+	Token curr = peek();
+	if (curr.type != TokenKind.Char && !curr.data.equals("{")) {
+	    throw new JsonException("Expected object, got " + curr.data);
+	}
+
+	HashMap<String, Field> parentObjectFields = getFields(clazz);
+	T parentObject = (T) getDefaultConstructor(clazz).newInstance();
+
 	expect("{");
 	while (!peek().data.equals("}")) {
 	    this.currentKey = eatString();
 	    expect(":");
-	    parseIntIfExists();
-	    parseStringIfExists();
-	    parseArrayIfExists();
+	    parseIntIfExists(parentObjectFields, parentObject);
+	    parseStringIfExists(parentObjectFields, parentObject);
+	    parseArrayIfExists(parentObjectFields, parentObject);
+	    parseObjectIfExists(parentObjectFields, parentObject);
 
 	    if (peek().data.equals("}")) break;
 	    else expect(",");
 	}
 	expect("}");
+
+	if (debug) System.out.println("endEatObject");
+	return parentObject;
     }
 
-    private void getAndSetIntField(String key, int value) throws JsonException, IllegalAccessException {
-	Field f = this.objectFields.get(key);
+    private void getAndSetIntField(HashMap<String, Field> objectFields, T object, String key, int value) throws JsonException, IllegalAccessException {
+	Field f = objectFields.get(key);
 	if (f != null) {
-	    f.setInt(this.object, value);
+	    f.setInt(object, value);
 	} else {
 	    throw new JsonException("Error: Key '" + key + "' does not exist.");
 	}
     }
 
-    private void getAndSetObjectField(String key, Object value) throws JsonException, IllegalAccessException {
-	Field f = this.objectFields.get(key);
+    private void getAndSetObjectField(HashMap<String, Field> objectFields, T object, String key, Object value) throws JsonException, IllegalAccessException {
+	Field f = objectFields.get(key);
 	if (f != null) {
-	    f.set(this.object, value);
+	    f.set(object, value);
 	} else {
 	    throw new JsonException("Error: Key '" + key + "' does not exist.");
 	}
     }
 
-    private void parseIntIfExists() throws JsonException, IllegalAccessException {
+    private void parseIntIfExists(HashMap<String, Field> objectFields, T object) throws JsonException, IllegalAccessException {
 	Token curr = peek();
 	if (curr.type == TokenKind.Integer) {
-	    getAndSetIntField(this.currentKey, eatInt());
+	    getAndSetIntField(objectFields, object, this.currentKey, eatInt());
 	}
     }
 
-    private void parseStringIfExists() throws JsonException, IllegalAccessException {
+    private void parseStringIfExists(HashMap<String, Field> objectFields, T object) throws JsonException, IllegalAccessException {
 	Token curr = peek();
 	if (curr.type == TokenKind.String) {
-	    getAndSetObjectField(this.currentKey, eatString());
+	    getAndSetObjectField(objectFields, object, this.currentKey, eatString());
 	}
     }
 
     // @SuppressWarnings("unchecked")
-    private void parseArrayIfExists() throws JsonException, IllegalAccessException {
+    private void parseArrayIfExists(HashMap<String, Field> objectFields, T object) throws JsonException, IllegalAccessException {
 	Token curr = peek();
 	if (curr.type == TokenKind.Char && curr.data.equals("[")) {
-	    getAndSetObjectField(this.currentKey, eatArray());
+	    getAndSetObjectField(objectFields, object, this.currentKey, eatArray());
+	}
+    }
+
+    private void parseObjectIfExists(HashMap<String, Field> parentObjectFields, T parentObject) throws JsonException, IllegalAccessException, InstantiationException, InvocationTargetException {
+	Token curr = peek();
+	if (curr.type == TokenKind.Char && curr.data.equals("{")) {
+	    String objectKey = this.currentKey;
+	    Field f = parentObjectFields.get(objectKey);
+	    if (f != null) {
+		Class cls = f.getType();
+		T innerObject = (T) eatObject(cls);
+		f.set(parentObject, innerObject);
+	    } else {
+		throw new JsonException("Error: Key '" + objectKey + "' does not exist.");
+	    }
 	}
     }
 }
