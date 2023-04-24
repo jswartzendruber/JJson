@@ -1,9 +1,44 @@
 # JJson, a Java JSON library
 
-Don't use this. It doesn't support full JSON. Just the amount I needed to parse some basic requests. Maybe I'll add more stuff to it later.
+Very unstable. Uses reflection to inspect your object, and then fill in the parsed json. Will throws errors if the json object being parsed and your object des not exactly match the field names and field types.
 
-Usage:
-- Create a class to hold the object. Keys must exactly match between the JSON and the object. See JsonExample.java
-- Call the JsonParser constructor with the JSON string and your object. See Json.java
-- ???
-- Profit
+Supported parts of json (with nesting):
+- Objects
+- Arrays
+- Strings
+- Ints
+
+Example object:
+```code
+public class TestObject {
+    public String name;
+    public int age;
+
+    public TestObject() {}
+}
+```
+
+Example Json:
+```code
+{
+    "name": "Jimmy",
+    "age": 24
+}
+```
+
+Parsing:
+```code
+try { 
+    TestObject obj = (TestObject) new JsonParser<TestObject>(json, TestObject.class).parse();
+    System.out.println(obj);
+} catch (InstantiationException | IllegalAccessException | InvocationTargetException | JsonException e) {
+    e.printStackTrace();
+}
+```
+
+Now you can use it like a regular object.
+
+Deserialization:
+```code
+System.out.println(JsonUtils.toJsonString(obj))
+```
