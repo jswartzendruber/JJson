@@ -35,7 +35,7 @@ public class JsonUtils {
 	    } else if (currFieldObject instanceof List) {
 		List currList = (List) currField.get(object);
 		buildList(sb, currList);
-	    } else {
+	    } else if (currFieldObject != null) {
 		HashMap<String, Field> childFields = JsonParser.getFields(currFieldObject.getClass());
 		buildObject(sb, childFields, currFieldObject);
 	    }
