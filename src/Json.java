@@ -9,7 +9,8 @@ import java.util.Map;
 
 public class Json {
     public static void main(String[] args) {
-	String json = "{"
+		System.out.println("abc");
+		String json = "{"
 	    + "\"user_code\": \"AAAAAAAA\","
 	    + "\"device_code\": \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\","
 	    + "\"verification_uri\": \"https://www.microsoft.com/link\","
@@ -23,15 +24,15 @@ public class Json {
 	    + "\"message\": \"To sign in, use a web browser to open the page https://www.microsoft.com/link and enter the code AAAAAAAA to authenticate.\""
 	    + "}";
 
-	try { 
-	    JsonExample obj = (JsonExample) new JsonParser<JsonExample>(json, JsonExample.class).parse();
-	    if (obj == null) return;
+		try { 
+			JsonExample obj = (JsonExample) new JsonParser<JsonExample>(json, JsonExample.class).parse();
+			if (obj == null) return;
 
-	    System.out.println(obj);
-	    System.out.println("-----------");
-	    System.out.println(JsonUtils.toJsonString(obj));
-	} catch (InstantiationException | IllegalAccessException | InvocationTargetException | JsonException e) {
-	    e.printStackTrace();
-	}
+			System.out.println(obj);
+			System.out.println("-----------");
+			System.out.println(JsonUtils.toJsonString(obj));
+		} catch (InstantiationException | IllegalAccessException | InvocationTargetException | JsonException e) {
+			e.printStackTrace();
+		}
     }
 }
